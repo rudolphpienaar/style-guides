@@ -5,6 +5,11 @@ target-version = "py311"
 line-length = 100
 
 [lint]
+# The pydoclint (DOC) rules that check Returns, Yields and Raises are still in
+# preview. explicit-preview-rules turns preview on for those codes only, named
+# in full below; no other preview rule is enabled by selecting a prefix.
+preview = true
+explicit-preview-rules = true
 select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -19,6 +24,11 @@ select = [
     "FA",   # from __future__ import annotations
     "N",    # pep8-naming, minus the rules the naming section overrides
     "RUF",  # ruff-specific
+    "DOC201",  # return value not documented under Returns:
+    "DOC202",  # Returns: on a function that returns nothing
+    "DOC402",  # yielded value not documented under Yields:
+    "DOC403",  # Yields: on a function that yields nothing
+    "DOC501",  # raised exception not documented under Raises:
 ]
 ignore = [
     "N802",  # function names: RPN subject_action uses a lowerCamelCase subject

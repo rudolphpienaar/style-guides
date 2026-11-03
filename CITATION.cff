@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you refer to these style guides, please cite them as below."
 title: "style-guides: Python and TypeScript coding conventions"
 type: software
-version: 1.0.0
+version: 1.1.0
 date-released: 2026-11-03
 authors:
   - family-names: Pienaar

@@ -18,14 +18,14 @@ import tseslint from 'typescript-eslint';
 
 /**
  * Prepositions that may not stand where the verb of a method goes
- * (`answerRows_of`, `seriesUID_forPath`). Shared with python/rpn_check.py.
+ * (`answerRows_of`, `seriesUID_forPath`). Shared with python/style_check.py.
  */
 const PREPOSITIONS = 'of|to|with|from|for|by|as|in|on|at';
 
 /**
  * RPN function name: `<subject>[Qualifier]_<verb>[Adverb]`, both halves
  * lowerCamelCase, exactly one underscore, and a verb (not a preposition) after
- * it. `main` is the one name without a subject. Shared with python/rpn_check.py.
+ * it. `main` is the one name without a subject. Shared with python/style_check.py.
  */
 const RPN_REGEX = `^(?:main|[a-z][a-zA-Z0-9]*_(?!(?:${PREPOSITIONS})(?:[A-Z0-9]|$))[a-z][a-zA-Z0-9]*)$`;
 
@@ -55,6 +55,55 @@ const namingRules = [
   { selector: 'objectLiteralProperty', modifiers: ['requiresQuotes'], format: null },
 ];
 
+/**
+ * Sections every file overview names, as python/style_check.py requires of a
+ * module docstring. Test files are exempt from the sections, not from @module.
+ */
+const FILE_OVERVIEW_SECTIONS = ['Key components:', 'Typical usage:', 'Dependencies:'];
+const TEST_FILE_PATTERN = /\.(?:test|spec)\.ts$/;
+
+/**
+ * Local rule: the `@file` block names the guide's sections and ends with
+ * `@module`. jsdoc/require-file-overview reports a file with no such block.
+ */
+const fileOverviewSectionsRule = {
+  meta: {
+    type: 'suggestion',
+    docs: { description: 'Require the style guide sections in the @file overview.' },
+    schema: [],
+    messages: { missing: 'File overview has no {{section}}.' },
+  },
+  create(context) {
+    return {
+      Program() {
+        const overview = context.sourceCode
+          .getAllComments()
+          .find((comment) => comment.type === 'Block' && /@file\b/.test(comment.value));
+        if (overview === undefined) {
+          return;
+        }
+        const sections = TEST_FILE_PATTERN.test(context.filename) ? [] : FILE_OVERVIEW_SECTIONS;
+        for (const section of [...sections, '@module']) {
+          if (!overview.value.includes(section)) {
+            context.report({ loc: overview.loc, messageId: 'missing', data: { section } });
+          }
+        }
+      },
+    };
+  },
+};
+
+/** Exported declarations, which carry an @example as public Python names do. */
+const EXPORTED = ['ExportNamedDeclaration', 'ExportDefaultDeclaration'];
+const exampleContexts = EXPORTED.flatMap((exported) => [
+  `${exported} > FunctionDeclaration`,
+  `${exported} > ClassDeclaration`,
+  `${exported} > TSInterfaceDeclaration`,
+  `${exported} > VariableDeclaration > VariableDeclarator > ArrowFunctionExpression`,
+  `${exported} > ClassDeclaration > ClassBody > ` +
+    'MethodDefinition[kind="method"]:not([accessibility="private"]):not([override=true])',
+]);
+
 export default tseslint.config(
   { ignores: ['node_modules/**', 'dist/**', 'eslint.config.mjs'] },
   ...tseslint.configs.strictTypeChecked,
@@ -64,7 +113,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
-    plugins: { import: importPlugin },
+    plugins: { import: importPlugin, local: { rules: { 'file-overview-sections': fileOverviewSectionsRule } } },
     rules: {
       // Naming
       '@typescript-eslint/naming-convention': ['error', ...namingRules],
@@ -97,25 +146,39 @@ export default tseslint.config(
       'import/no-cycle': 'error',
       '@typescript-eslint/no-require-imports': 'error',
 
-      // Documentation
+      // Documentation. Every file, function, class, method, type and field has
+      // a comment, private ones included, as in Python; @param, @returns and
+      // @throws on every function; @example on everything exported.
       'jsdoc/require-file-overview': ['error', { tags: { file: { mustExist: true } } }],
+      'local/file-overview-sections': 'error',
       'jsdoc/require-jsdoc': [
         'error',
         {
-          publicOnly: true,
+          publicOnly: false,
           require: {
             ClassDeclaration: true,
             FunctionDeclaration: true,
             MethodDefinition: true,
           },
-          contexts: ['TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'TSEnumDeclaration'],
+          contexts: [
+            'TSInterfaceDeclaration',
+            'TSTypeAliasDeclaration',
+            'TSPropertySignature',
+            'PropertyDefinition:not([accessibility="private"])',
+            'Program > VariableDeclaration > VariableDeclarator > ArrowFunctionExpression',
+            'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > ArrowFunctionExpression',
+          ],
         },
       ],
-
+      // A getter is documented like a field: one line, no @returns, no @example.
+      'jsdoc/require-returns': ['error', { checkGetters: false }],
+      'jsdoc/require-throws': 'error',
+      'jsdoc/require-example': [
+        'error',
+        { checkConstructors: false, checkGetters: false, checkSetters: false, contexts: exampleContexts },
+      ],
       // Blank lines between description, tags and examples, as in the guide's examples.
       'jsdoc/tag-lines': ['error', 'any', { startLines: 1 }],
-      // A getter is documented like a field: one line, no @returns.
-      'jsdoc/require-returns': ['error', { checkGetters: false }],
 
       // Reliability: no silent failures
       'no-empty': ['error', { allowEmptyCatch: false }],

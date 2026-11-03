@@ -14,7 +14,8 @@ Where the languages force a difference, the guide states it in the section conce
 |---|---|
 | A rule or its explanation | `python/STYLE-GUIDE.md` and `typescript/STYLE-GUIDE.md` |
 | What the linters enforce | `python/ruff.toml`, `typescript/eslint.config.mjs`, `typescript/tsconfig.json` |
-| The RPN naming pattern | `python/rpn_check.py` and the `RPN_REGEX` in `typescript/eslint.config.mjs`, which share one pattern |
+| The RPN naming pattern | `python/style_check.py` and the `RPN_REGEX` in `typescript/eslint.config.mjs`, which share one pattern |
+| What documentation is required | `python/style_check.py` and `python/ruff.toml` (`D`, `DOC`), and the `jsdoc/*` and `local/file-overview-sections` rules in `typescript/eslint.config.mjs`, which require the same things |
 | The worked example | `python/example/transcript.py` and `typescript/example/transcript.ts` (with its test) |
 
 ## Checks
@@ -27,8 +28,8 @@ python scripts/guides_compare.py python/STYLE-GUIDE.md typescript/STYLE-GUIDE.md
 
 # Python
 ruff check . && ruff format --check .
-python python/rpn_check.py python scripts
-(cd python && python -m doctest example/transcript.py rpn_check.py)
+python python/style_check.py python scripts
+(cd python && python -m doctest example/transcript.py style_check.py)
 python -m doctest scripts/guides_compare.py
 
 # TypeScript

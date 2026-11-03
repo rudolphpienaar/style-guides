@@ -28,6 +28,12 @@ const SEGMENTS: Segment[] = [
     { startTime: 9.0, endTime: 10.0, text: 'Three.' },
 ];
 
+void test('appending a segment extends the paragraph', (): void => {
+    const paragraph: Paragraph = new Paragraph({ startTime: 0.0, endTime: 1.0, text: 'One.' });
+    paragraph.segment_append({ startTime: 1.5, endTime: 2.0, text: 'Two.' });
+    assert.equal(paragraph.text, 'One. Two.');
+});
+
 void test('a paragraph starts at its first segment', (): void => {
     const paragraph: Paragraph = new Paragraph({ startTime: 0.0, endTime: 2.5, text: 'Good morning.' });
     assert.equal(paragraph.startTime, 0.0);

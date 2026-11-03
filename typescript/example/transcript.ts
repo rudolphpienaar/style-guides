@@ -99,15 +99,24 @@ export class Paragraph {
      * Append a segment to the end of the paragraph.
      *
      * @param segment - Segment that follows the current last one in time.
+     *
+     * @example
+     * ```ts
+     * const paragraph: Paragraph = new Paragraph({ startTime: 0.0, endTime: 1.0, text: 'One.' });
+     * paragraph.segment_append({ startTime: 1.5, endTime: 2.0, text: 'Two.' });
+     * paragraph.text; // 'One. Two.'
+     * ```
      */
     segment_append(segment: Segment): void {
         this.segments.push(segment);
     }
 
+    /** First member segment; the constructor guarantees there is one. */
     private get segmentFirst(): Segment {
         return this.segments[0] ?? paragraphEmpty_throw();
     }
 
+    /** Last member segment; the constructor guarantees there is one. */
     private get segmentLast(): Segment {
         return this.segments.at(-1) ?? paragraphEmpty_throw();
     }

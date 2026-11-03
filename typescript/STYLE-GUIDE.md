@@ -2,7 +2,7 @@
 
 Rudolph Pienaar's conventions for TypeScript. They apply to code in repositories I start or own. In an existing codebase, follow that codebase's conventions instead, so that a patch is indistinguishable from the code around it.
 
-This guide and the [Python guide](../python/STYLE-GUIDE.md) are kept in step: same sections in the same order, same rules, same example domain. Where the languages force a difference, the guide says so. Most of it is widely shared practice: strict types, named models instead of loose objects, documentation on everything exported, a clean linter. The [naming](#naming) section is the idiosyncratic part. It departs from the community's verb-first camelCase for functions, and is the part most likely to differ from what a contributor expects.
+This guide and the [Python guide](../python/STYLE-GUIDE.md) are kept in step: same sections in the same order, same rules, same example domain. Where the languages force a difference, the guide says so. Most of it is widely shared practice: strict types, named models instead of loose objects, documentation on everything, a clean linter. The [naming](#naming) section is the idiosyncratic part. It departs from the community's verb-first camelCase for functions, and is the part most likely to differ from what a contributor expects.
 
 Snippets below elide bodies and documentation (`...`) where the point being made is elsewhere. [`example/transcript.ts`](example/transcript.ts) is a complete module that applies every rule at full strength and passes `tsc` and ESLint with [`tsconfig.json`](tsconfig.json) and [`eslint.config.mjs`](eslint.config.mjs); [`example/transcript.test.ts`](example/transcript.test.ts) runs its documented examples. When in doubt, copy its shape.
 
@@ -319,16 +319,15 @@ A package's own scope (`@fnndsc/cumin`) is third-party to every other package, e
 
 ## Documentation: JSDoc everywhere
 
-Every file, and everything exported from it, has a JSDoc block. Types belong in the TypeScript, not in the JSDoc: `@param name - meaning`, never `@param {string} name`.
+Every file, and every function, class, method, type and field in it, private ones included, has a JSDoc comment. Getters and `override` methods need only the comment; everything else carries the tags below. The checks named here are enforced: see [tooling](#tooling-tsc-and-eslint-zero-tolerance). Types belong in the TypeScript, not in the JSDoc: `@param name - meaning`, never `@param {string} name`.
 
 ### Modules
 
-Every file is a module, and opens with a block carrying `@file` and `@module`, which says:
+Every file is a module, and opens with a block carrying `@file` and `@module`. It says what the file is for and its scope, then has three sections, required everywhere but in test files (`*.test.ts`, `*.spec.ts`):
 
-- what the file is for, and its scope;
-- its key exports, one line each;
-- typical usage;
-- dependencies and assumptions (input formats, units).
+- **Key components:** its key exports, one line each;
+- **Typical usage:** how a caller uses it;
+- **Dependencies:** what it needs, and its assumptions (input formats, units).
 
 ```typescript
 /**
@@ -364,10 +363,10 @@ Every file is a module, and opens with a block carrying `@file` and `@module`, w
 
 A one-line summary, a paragraph of detail if the behaviour is not obvious, then the tags:
 
-- **`@param`**: every parameter, with its meaning, units and constraints.
-- **`@returns`**: the structure and meaning of the result, including edge cases (empty input, missing data).
-- **`@throws`**: every exception a caller should expect, with its class.
-- **`@example`**: typical use. Tests run the examples, so they stay true.
+- **`@param`**: every parameter, with its meaning, units and constraints. Required for each parameter.
+- **`@returns`**: the structure and meaning of the result, including edge cases (empty input, missing data). Required whenever the function returns a value.
+- **`@throws`**: every exception the function throws itself, and any other a caller should expect, with its class. Required whenever the function contains a `throw`.
+- **`@example`**: typical use. Tests run the examples, so they stay true. Required on every exported function, class, interface and public method.
 
 ```typescript
 /**
@@ -398,7 +397,7 @@ Getters are documented like fields: a one-line description of the value, no `@re
 
 ### Classes and data types
 
-Purpose and an `@example` on the type; a one-line comment on each field, attached to the field itself, so editors show it on hover. This is where TypeScript differs from the Python guide's `Attributes:` section: `@property` tags duplicate the type system, and the lint rejects them.
+Purpose, an `@example` on an exported type, and a one-line comment on each field other than a class's private ones, attached to the field itself, so editors show it on hover. This is where TypeScript differs from the Python guide's `Attributes:` section: `@property` tags duplicate the type system, and the lint rejects them.
 
 ```typescript
 /**
@@ -439,7 +438,7 @@ const wholeSeconds = Math.trunc(seconds);
 
 - `tsc --noEmit` reports nothing. `eslint --max-warnings 0 .` reports nothing. The tests pass.
 - Fix the cause of a finding rather than silencing it. An `eslint-disable` comment or `@ts-expect-error` names the rule and gives the reason after `--`. `@ts-ignore` and `as unknown as` are not used.
-- A project's own configuration wins. Start from [`tsconfig.json`](tsconfig.json) and [`eslint.config.mjs`](eslint.config.mjs). The ESLint configuration builds on `typescript-eslint`'s strict type-checked rules and adds the [naming](#naming) rule, including the ban on prepositions as verbs; it uses the same pattern as the Python [`rpn_check.py`](../python/rpn_check.py).
+- A project's own configuration wins. Start from [`tsconfig.json`](tsconfig.json) and [`eslint.config.mjs`](eslint.config.mjs). The ESLint configuration builds on `typescript-eslint`'s strict type-checked rules and adds the [naming](#naming) rule, including the ban on prepositions as verbs; it uses the same pattern as the Python [`style_check.py`](../python/style_check.py). A local rule in the same file, `local/file-overview-sections`, requires the file comment's sections, as `style_check.py` does for a module docstring. Between them, the rules require what ruff and `style_check.py` require in Python, rule for rule.
 - Anyone proposing code, a person or a coding agent, runs the checks first and shows the clean output with the change. `npm run check` runs all three here.
 
 ---
@@ -455,8 +454,8 @@ const wholeSeconds = Math.trunc(seconds);
 - [ ] Functions refactored on nesting, responsibility, clarity and repetition, not on length.
 - [ ] Named constants; one source of truth; specific types at interfaces.
 - [ ] Imports grouped: `node:` built-ins, third-party, local; `import type` for types.
-- [ ] File block with `@file`, purpose, key components, usage, dependencies and `@module`.
-- [ ] Every exported function and method: summary, `@param`, `@returns`, `@throws`, `@example`.
-- [ ] Every exported type: purpose, `@example`, and a comment on each field.
+- [ ] File block with `@file`, purpose, then Key components, Typical usage and Dependencies sections, and `@module`.
+- [ ] Every function and method, private ones included: summary, `@param`, `@returns`, `@throws`; `@example` if exported.
+- [ ] Every type: purpose and a comment on each field; `@example` if exported.
 - [ ] Comments explain why, not what.
 - [ ] `tsc`, ESLint and tests clean.

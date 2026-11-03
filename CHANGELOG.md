@@ -2,6 +2,19 @@
 
 Changes to the guides and to what the configurations enforce. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/), where a major version tightens a rule existing code may break.
 
+## [1.1.0] - 2026-11-03
+
+### Changed
+
+- Documentation rules are enforced, and to the same bar in both languages: comments on private helpers and on fields; parameters, returns and exceptions documented; examples on everything public; module and file comments with Key components, Typical usage and Dependencies sections.
+- `python/rpn_check.py` is now `python/style_check.py`, and checks docstring structure as well as naming.
+- `python/ruff.toml` opts into ruff's preview Returns, Yields and Raises rules (`DOC201`, `DOC202`, `DOC402`, `DOC403`, `DOC501`) by name, and no other preview rule.
+- `typescript/eslint.config.mjs` adds `jsdoc/require-throws`, `jsdoc/require-example`, comments on unexported functions and on fields, and a local `file-overview-sections` rule.
+
+### Fixed
+
+- Two generators in the Python checker documented `Returns:` where they yield.
+
 ## [1.0.0] - 2026-11-03
 
 ### Added

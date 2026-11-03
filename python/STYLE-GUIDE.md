@@ -4,7 +4,7 @@ Rudolph Pienaar's conventions for Python. They apply to code in repositories I s
 
 This guide and the [TypeScript guide](../typescript/STYLE-GUIDE.md) are kept in step: same sections in the same order, same rules, same example domain. Where the languages force a difference, the guide says so. Most of it is widely shared practice: modern Python, full type hints, models instead of loose dicts, Google docstrings, a clean linter. The [naming](#naming) section is the idiosyncratic part. It departs from PEP 8, and is the part most likely to differ from what a contributor expects.
 
-Snippets below elide bodies and docstrings (`...`) where the point being made is elsewhere. [`example/transcript.py`](example/transcript.py) is a complete module that applies every rule at full strength and passes `ruff check` with [`ruff.toml`](ruff.toml), `rpn_check.py`, and its own doctests. When in doubt, copy its shape.
+Snippets below elide bodies and docstrings (`...`) where the point being made is elsewhere. [`example/transcript.py`](example/transcript.py) is a complete module that applies every rule at full strength and passes `ruff check` with [`ruff.toml`](ruff.toml), `style_check.py`, and its own doctests. When in doubt, copy its shape.
 
 ---
 
@@ -70,7 +70,7 @@ Why:
 
 The part after the underscore is always a verb. A preposition in its place (`answerRows_of`, `seriesUid_forPath`, `x_to`) names the result without saying what the function does to its input: fetch, derive, parse, render. Say it: `answerRows_derive`, `seriesUid_parse`.
 
-A preposition may follow the verb as part of its adverb (`rows_readFromCache`), or qualify the subject (`dataFromUser_parse`). `rpn_check.py` refuses a verb that is, or starts with, `of`, `to`, `with`, `from`, `for`, `by`, `as`, `in`, `on` or `at`.
+A preposition may follow the verb as part of its adverb (`rows_readFromCache`), or qualify the subject (`dataFromUser_parse`). `style_check.py` refuses a verb that is, or starts with, `of`, `to`, `with`, `from`, `for`, `by`, `as`, `in`, `on` or `at`.
 
 ### Variables, parameters and fields: lowerCamelCase
 
@@ -106,8 +106,8 @@ class Segment:
 Names a framework or the language dictates keep their required spelling:
 
 - Dunder methods (`__init__`, `__repr__`).
-- A method that overrides a base class keeps the base class's name, and says so with `@override` (from `typing` on 3.12+, `typing_extensions` before): `setUp`, Django's `get_queryset`. `rpn_check.py` exempts `@override` methods.
-- pytest's `test_*` functions, which pytest finds by name. `rpn_check.py` exempts them.
+- A method that overrides a base class keeps the base class's name, and says so with `@override` (from `typing` on 3.12+, `typing_extensions` before): `setUp`, Django's `get_queryset`. `style_check.py` exempts `@override` methods from the naming rule and from everything but the docstring.
+- pytest's `test_*` functions, which pytest finds by name. `style_check.py` exempts them in the same way, and does not ask a test module's docstring for sections.
 - Names a framework requires without inheritance, such as Pydantic's `model_config`.
 
 Fields that mirror an external schema (a JSON API, a database column, an environment variable) stay lowerCamelCase in Python and map to the external name with an alias, so the outside world sees its own spelling. See the settings example under [which model](#which-model).
@@ -326,16 +326,15 @@ No comment headers over the groups: the blank lines already say where a group st
 
 ## Documentation: Google-style docstrings everywhere
 
-Every module, and every class and function in it, has a docstring in the Google style.
+Every module, and every class and function in it, private helpers included, has a docstring in the Google style. Properties, `@override` methods, dunders other than `__init__`, and pytest tests need only the docstring; everything else carries the sections below. The checks named here are enforced: see [tooling](#tooling-ruff-and-style_check-zero-tolerance).
 
 ### Modules
 
-The module docstring says:
+The module docstring says what the module is for and its scope, then has three sections, required everywhere but in test modules:
 
-- what the module is for, and its scope;
-- its key classes and functions, one line each;
-- typical usage;
-- dependencies and assumptions (input formats, units).
+- **Key components:** its key classes and functions, one line each;
+- **Typical usage:** how a caller uses it;
+- **Dependencies:** what it needs, and its assumptions (input formats, units).
 
 ```python
 """Merge timed transcript segments into readable paragraphs.
@@ -367,10 +366,10 @@ Dependencies:
 
 A one-line summary, a paragraph of detail if the behaviour is not obvious, then the sections:
 
-- **Args:** every parameter, with its meaning, units and constraints.
-- **Returns:** the structure and meaning of the result, including edge cases (empty input, missing data).
-- **Raises:** every exception a caller should expect.
-- **Example:** typical use, as a doctest, so it stays true.
+- **Args:** every parameter, with its meaning, units and constraints. Required whenever the function takes a parameter.
+- **Returns:** the structure and meaning of the result, including edge cases (empty input, missing data). Required whenever the function returns a value; a generator has **Yields:** instead.
+- **Raises:** every exception the function raises itself, and any other a caller should expect. Required whenever the function contains a `raise`.
+- **Example:** typical use, as a doctest, so it stays true. Required on every public function and method.
 
 ```python
 def paragraphs_build(
@@ -407,7 +406,7 @@ Properties are documented like fields: a one-line description of the value, no A
 
 ### Classes and data types
 
-Purpose, an **Attributes** section covering every field, and an **Example** of construction and use. This is where Python differs from the TypeScript guide, which documents each field on the field itself: Python has no comment syntax that attaches to a dataclass field, and the Google style puts them in the class docstring.
+Purpose, an **Attributes** section covering every public field, and, on a public class, an **Example** of construction and use. This is where Python differs from the TypeScript guide, which documents each field on the field itself: Python has no comment syntax that attaches to a dataclass field, and the Google style puts them in the class docstring.
 
 ```python
 @dataclass(frozen=True)
@@ -448,11 +447,12 @@ wholeSeconds = int(seconds)
 
 ---
 
-## Tooling: ruff and rpn_check, zero tolerance
+## Tooling: ruff and style_check, zero tolerance
 
-- `ruff check` reports nothing. `ruff format --check` reports nothing. `python rpn_check.py <paths>` reports nothing. Doctests pass.
+- `ruff check` reports nothing. `ruff format --check` reports nothing. `python style_check.py <paths>` reports nothing. Doctests pass.
 - Fix the cause of a finding rather than silencing it. A `# noqa` or `# type: ignore` names the rule and gives the reason on the same line.
-- A project's own `[tool.ruff]` wins. Start from [`ruff.toml`](ruff.toml), which selects pep8-naming and then ignores exactly the rules the [naming](#naming) section overrides (`N802`, `N803`, `N806`, `N815`, `N816`). Ruff cannot express the RPN rule, so [`rpn_check.py`](rpn_check.py) checks it, with the same pattern as the TypeScript ESLint configuration.
+- A project's own `[tool.ruff]` wins. Start from [`ruff.toml`](ruff.toml), which selects pep8-naming and then ignores exactly the rules the [naming](#naming) section overrides (`N802`, `N803`, `N806`, `N815`, `N816`). Ruff's Returns, Yields and Raises rules (`DOC201`, `DOC202`, `DOC402`, `DOC403`, `DOC501`) are still in preview; `ruff.toml` opts into those five by name and no other preview rule.
+- Ruff cannot express the RPN rule or the docstring structure (sections present, every field listed, private helpers documented), so [`style_check.py`](style_check.py) checks those. Between them, ruff and `style_check.py` require what the TypeScript ESLint configuration requires, rule for rule.
 - Anyone proposing code, a person or a coding agent, runs the checks first and shows the clean output with the change.
 
 ---
@@ -468,8 +468,8 @@ wholeSeconds = int(seconds)
 - [ ] Functions refactored on nesting, responsibility, clarity and repetition, not on length.
 - [ ] Named constants; one source of truth; specific types at interfaces.
 - [ ] Imports grouped: `__future__`, standard library, third-party, local.
-- [ ] Module docstring with purpose, key components, usage and dependencies.
-- [ ] Every function and method: summary, Args, Returns, Raises, Example.
-- [ ] Every class: purpose, Attributes, Example.
+- [ ] Module docstring with purpose, then Key components, Typical usage and Dependencies sections.
+- [ ] Every function and method, private ones included: summary, Args, Returns or Yields, Raises; Example if public.
+- [ ] Every class: purpose, Attributes for every public field; Example if public.
 - [ ] Comments explain why, not what.
-- [ ] `ruff check`, `ruff format --check`, `rpn_check.py` and doctests clean.
+- [ ] `ruff check`, `ruff format --check`, `style_check.py` and doctests clean.
