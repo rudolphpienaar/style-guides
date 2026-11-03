@@ -6,7 +6,8 @@ is shorter than a threshold, and renders the result as plain text with a
 timestamp at the start of each paragraph.
 
 It exists as the complete, ruff-clean reference for the Python style guide in
-this repository: every rule in the guide is applied here at full strength.
+this repository: every rule in the guide is applied here at full strength. It
+mirrors typescript/example/transcript.ts in what it does.
 
 Key components:
     - Segment: one timed span of recognised speech.
@@ -29,7 +30,7 @@ Dependencies:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 PARAGRAPH_GAP_SECONDS: float = 2.0
@@ -62,9 +63,12 @@ class Segment:
 class Paragraph:
     """Consecutive segments merged into one block of text.
 
+    A paragraph always holds at least one segment: build it from its first,
+    as ``Paragraph(segments=[first])``, and add the rest with
+    ``segment_append``.
+
     Attributes:
-        segments: Member segments in time order. Never empty once built by
-            ``paragraphs_build``.
+        segments: Member segments in time order. Never empty.
 
     Example:
         >>> paragraph = Paragraph(segments=[Segment(0.0, 2.5, "Good morning.")])
@@ -72,7 +76,7 @@ class Paragraph:
         0.0
     """
 
-    segments: list[Segment] = field(default_factory=list)
+    segments: list[Segment]
 
     @property
     def startTime(self) -> float:
@@ -80,9 +84,28 @@ class Paragraph:
         return self.segments[0].startTime
 
     @property
+    def endTime(self) -> float:
+        """End of the last member segment, in seconds."""
+        return self.segments[-1].endTime
+
+    @property
     def text(self) -> str:
         """Member segment texts joined by single spaces."""
         return " ".join(segment.text for segment in self.segments)
+
+    def segment_append(self, segment: Segment) -> None:
+        """Append a segment to the end of the paragraph.
+
+        Args:
+            segment: Segment that follows the current last one in time.
+
+        Example:
+            >>> paragraph = Paragraph(segments=[Segment(0.0, 1.0, "One.")])
+            >>> paragraph.segment_append(Segment(1.5, 2.0, "Two."))
+            >>> paragraph.text
+            'One. Two.'
+        """
+        self.segments.append(segment)
 
 
 def segments_load(path: Path) -> list[Segment]:
@@ -147,13 +170,13 @@ def paragraphs_build(
     if gapLimit < 0:
         raise ValueError(f"gapLimit must be non-negative, got {gapLimit}")
     paragraphs: list[Paragraph] = []
-    previousEnd: float | None = None
+    current: Paragraph | None = None
     for segment in segments:
-        startsParagraph: bool = previousEnd is None or segment.startTime - previousEnd > gapLimit
-        if startsParagraph:
-            paragraphs.append(Paragraph())
-        paragraphs[-1].segments.append(segment)
-        previousEnd = segment.endTime
+        if current is None or segment.startTime - current.endTime > gapLimit:
+            current = Paragraph(segments=[segment])
+            paragraphs.append(current)
+        else:
+            current.segment_append(segment)
     return paragraphs
 
 

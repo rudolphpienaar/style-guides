@@ -12,6 +12,7 @@ select = [
     "I",    # import sorting
     "UP",   # modern syntax for the target version
     "B",    # likely bugs
+    "C90",  # cyclomatic complexity, same limit as ESLint's complexity rule
     "SIM",  # simplifications
     "ANN",  # type annotations, including ANN401 (no Any)
     "D",    # docstrings, Google convention below
@@ -26,6 +27,9 @@ ignore = [
     "N815",  # class-scope fields are lowerCamelCase
     "N816",  # module-scope variables are lowerCamelCase
 ]
+
+[lint.mccabe]
+max-complexity = 15
 
 [lint.pydocstyle]
 convention = "google"

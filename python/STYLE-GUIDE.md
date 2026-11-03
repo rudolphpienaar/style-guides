@@ -2,34 +2,38 @@
 
 Rudolph Pienaar's conventions for Python. They apply to code in repositories I start or own. In an existing codebase, follow that codebase's conventions instead: a Django project written to PEP 8 stays PEP 8, and a patch to it should be indistinguishable from the code around it.
 
-Most of this guide is widely shared practice: modern Python, full type hints, models instead of loose dicts, Google docstrings, a clean linter. The [naming](#naming) section is the idiosyncratic part, and the part most likely to differ from what a contributor expects.
+This guide and the [TypeScript guide](../typescript/STYLE-GUIDE.md) are kept in step: same sections in the same order, same rules, same example domain. Where the languages force a difference, the guide says so. Most of it is widely shared practice: modern Python, full type hints, models instead of loose dicts, Google docstrings, a clean linter. The [naming](#naming) section is the idiosyncratic part. It departs from PEP 8, and is the part most likely to differ from what a contributor expects.
 
-Snippets below elide bodies and docstrings (`...`) where the point being made is elsewhere. [`example/transcript.py`](example/transcript.py) is a complete module that applies every rule at full strength and passes `ruff check` with [`ruff.toml`](ruff.toml). When in doubt, copy its shape.
+Snippets below elide bodies and docstrings (`...`) where the point being made is elsewhere. [`example/transcript.py`](example/transcript.py) is a complete module that applies every rule at full strength and passes `ruff check` with [`ruff.toml`](ruff.toml), `rpn_check.py`, and its own doctests. When in doubt, copy its shape.
 
 ---
 
-## Language version
+## Language version and configuration
 
-**Python 3.11 or later.** Use the modern features:
+**Python 3.11 or later.**
 
-- Union syntax: `str | None`, not `Optional[str]`.
 - `from __future__ import annotations` as the first import of every module, so annotations are never evaluated at import time and forward references need no quotes.
+- Union syntax: `str | None`, not `Optional[str]`.
 - Abstract collection types from `collections.abc` (`Iterable`, `Mapping`, `Sequence`), not from `typing`.
 - Structural pattern matching (`match`) where it makes branching on shape clearer than an `if` chain.
+- Project metadata and tool configuration in `pyproject.toml`; [`ruff.toml`](ruff.toml) is the baseline for the `[tool.ruff]` section.
 
 ---
 
 ## Naming
 
-### Functions and methods: RPN, `subject_action`
+### Functions and methods: RPN, `subject_verb`
 
 Functions and methods name the subject first and the action second, in the order of Reverse Polish Notation (RPN): operand, then operator.
 
 ```
-<subject>[Qualifier]_<action>[Modifier]
+<subject>[Qualifier]_<verb>[Adverb]
 ```
 
-The subject is lowerCamelCase; the action is a verb, also lowerCamelCase if it has more than one word.
+- **subject**: the noun acted on, lowerCamelCase (`user`, `segment`).
+- **Qualifier**: optional, narrows the subject, continues the camelCase (`userNames`, `segmentFirst`).
+- **verb**: the action, lowercase (`get`, `build`, `parse`, `render`).
+- **Adverb**: optional, refines the verb, continues the camelCase (`checkIsValid`, `readFromCache`).
 
 ```python
 # Conventional Python (verb first)
@@ -37,13 +41,14 @@ def get_user_names() -> list[str]: ...
 def is_login_valid() -> bool: ...
 def parse_user_data(raw: str) -> UserRecord: ...
 
+
 # RPN (subject first)
 def userNames_get() -> list[str]: ...
-def login_isValid() -> bool: ...
+def login_checkIsValid() -> bool: ...
 def userData_parse(raw: str) -> UserRecord: ...
 ```
 
-More examples, from the reference module:
+From the reference module:
 
 ```python
 def segments_load(path: Path) -> list[Segment]: ...
@@ -52,23 +57,34 @@ def timestamp_format(seconds: float) -> str: ...
 def transcript_render(paragraphs: list[Paragraph]) -> str: ...
 ```
 
+Every function and method name has exactly one underscore, apart from a leading underscore that marks it private. `main` is the one name without a subject.
+
 Why:
 
 - **Subject first.** The name says what is being operated on before it says what happens to it.
-- **Grouping.** Operations on the same subject sort together in an editor outline, an API listing or a module index.
+- **Grouping.** Operations on the same subject sort together in an editor outline, an API listing or a module index: `user_create`, `user_delete`, `user_get`, `userPassword_reset`.
 - **Searchability.** `grep -n 'paragraphs_'` finds everything that acts on paragraphs.
+- **Machine parsability.** One underscore splits every name into subject and verb, so a regular expression can lint it, index it or build a call graph from it.
+
+### The verb is a verb
+
+The part after the underscore is always a verb. A preposition in its place (`answerRows_of`, `seriesUid_forPath`, `x_to`) names the result without saying what the function does to its input: fetch, derive, parse, render. Say it: `answerRows_derive`, `seriesUid_parse`.
+
+A preposition may follow the verb as part of its adverb (`rows_readFromCache`), or qualify the subject (`dataFromUser_parse`). `rpn_check.py` refuses a verb that is, or starts with, `of`, `to`, `with`, `from`, `for`, `by`, `as`, `in`, `on` or `at`.
 
 ### Variables, parameters and fields: lowerCamelCase
 
-Local variables, function parameters, module-level variables and class or dataclass fields are lowerCamelCase.
+Local variables, parameters, module-level variables and class or dataclass fields are lowerCamelCase.
 
 ```python
 siteCount: int = len(sites)
-previousEnd: float | None = None
+current: Paragraph | None = None
+
 
 def paragraphs_build(segments: list[Segment], gapLimit: float) -> list[Paragraph]: ...
 
-@dataclass
+
+@dataclass(frozen=True)
 class Segment:
     startTime: float
     endTime: float
@@ -80,33 +96,32 @@ class Segment:
 | Kind | Convention | Example |
 |---|---|---|
 | Class, dataclass, model, exception | PascalCase | `TranscriptSegment`, `ConfigError` |
-| Constant | UPPER_SNAKE_CASE | `PARAGRAPH_GAP_SECONDS` |
+| Module-level constant | UPPER_SNAKE_CASE | `PARAGRAPH_GAP_SECONDS` |
 | Property | lowerCamelCase noun, named like a field | `paragraph.startTime` |
 | Module, package | lowercase, short, underscores only if needed | `transcript.py` |
-| Private member or helper | leading underscore, otherwise as above | `_cache`, `_segment_split()` |
+| Private member or helper | leading underscore, otherwise as above | `_cache`, `_segment_parse()` |
 
 ### Where frameworks win
 
-Names that a framework or the language dictates keep their required spelling: `__init__`, `model_config` in Pydantic, `setUp` in `unittest`, Django's `get_queryset`, an argparse `dest` that must match a published flag. Do not wrap them to rename them.
+Names a framework or the language dictates keep their required spelling:
 
-Field names that mirror an external schema (a JSON API, a database column, an environment variable) stay lowerCamelCase in Python and map to the external name with an alias, so the outside world sees its own spelling:
+- Dunder methods (`__init__`, `__repr__`).
+- A method that overrides a base class keeps the base class's name, and says so with `@override` (from `typing` on 3.12+, `typing_extensions` before): `setUp`, Django's `get_queryset`. `rpn_check.py` exempts `@override` methods.
+- pytest's `test_*` functions, which pytest finds by name. `rpn_check.py` exempts them.
+- Names a framework requires without inheritance, such as Pydantic's `model_config`.
 
-```python
-class StudyRecord(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    studyInstanceUid: str = Field(alias="study_instance_uid")
-```
+Fields that mirror an external schema (a JSON API, a database column, an environment variable) stay lowerCamelCase in Python and map to the external name with an alias, so the outside world sees its own spelling. See the settings example under [which model](#which-model).
 
 ---
 
-## Type hints: pervasive and explicit
+## Types: pervasive and explicit
 
 Every parameter and every return value has a type hint. Local variables get one whenever the type is not obvious from the right-hand side.
 
 ```python
 # Good: complete signature
 def paragraphs_build(segments: list[Segment], gapLimit: float) -> list[Paragraph]: ...
+
 
 # Bad: missing return type
 def paragraphs_build(segments: list[Segment], gapLimit: float): ...
@@ -127,12 +142,13 @@ Name the contents of collections:
 def columns_get() -> list[str]: ...
 def resultsByScenario_get() -> dict[str, ProjectionResult]: ...
 
+
 # Bad: the element type is hidden
 def columns_get() -> list: ...
 def resultsByScenario_get() -> dict: ...
 ```
 
-`Any` is not a type hint; it is the absence of one. Use the specific type, a `Protocol`, a `TypeVar`, or `object` when a value is genuinely opaque.
+`Any` is not a type hint; it is the absence of one. Use the specific type, a `Protocol`, a `TypeVar`, or `object` when a value is genuinely opaque, and narrow it before use. Parse untrusted input (`json.loads`, a request body, a file) into a validated model at the edge.
 
 ---
 
@@ -147,25 +163,27 @@ class CostSplit:
     variableCost: float
     staffingCost: float
 
+
 def costs_calculate(revenue: float, siteCount: int) -> CostSplit: ...
+
 
 # Bad: callers must remember what the keys or positions mean
 def costs_calculate(revenue: float, siteCount: int) -> dict[str, float]: ...
 def costs_calculate(revenue: float, siteCount: int) -> tuple[float, float]: ...
 ```
 
-The same applies to model fields: a field that holds a list of dicts is a list of a smaller model waiting to be named.
+The same applies to fields: a field that holds a list of dicts is a list of a smaller model waiting to be named.
 
 ### Which model
 
 | Use | Model | Why |
 |---|---|---|
-| Plain data inside the program | `@dataclass` (`frozen=True` when it should not change) | Standard library, no dependency, cheap |
-| Settings from environment variables or `.env` | Pydantic `BaseSettings` | Reads and validates the environment |
-| Data crossing a boundary (API request or response, file, message) | Pydantic `BaseModel` | Validation and serialisation |
-| Data with non-trivial invariants | Pydantic `BaseModel` with validators | Constraints live with the data |
+| Plain data inside the program | `@dataclass(frozen=True)` | Standard library, no dependency; the default |
+| Data with behaviour or an invariant to keep | `@dataclass` with methods and properties | Methods and properties live with the data |
+| Settings from environment variables | Pydantic `BaseSettings` | Reads and validates the environment |
+| Data crossing a boundary (API request or response, file, message) | Pydantic `BaseModel` | Validation at the edge; plain types inside |
 
-Settings, Pydantic v2:
+Settings, with Pydantic v2:
 
 ```python
 from typing import Literal
@@ -224,7 +242,7 @@ Deep nesting with mixed concerns is not:
 def config_process(rawConfig: Mapping[str, object]) -> ProcessedConfig:
     if "database" in rawConfig:
         database = rawConfig["database"]
-        if "url" in database:
+        if isinstance(database, dict) and "url" in database:
             if database["url"].startswith("postgres://"):
                 hostPort = database["url"].split("://")[1].split(":")
                 if len(hostPort) == 2:
@@ -265,7 +283,7 @@ Behaviour comes from configuration or a single definition, not from values repea
 siteCount: float = siteTrajectory_calculate(assumptions, year)
 
 # Bad: where do 10 and 1.25 come from, and where else are they?
-siteCount = 10 * (1.25 ** year)
+siteCount = 10 * (1.25**year)
 ```
 
 ### Type safety over flexibility
@@ -276,6 +294,7 @@ Specific types at interfaces, even when a looser type would also work.
 # Good
 def results_merge(base: ProjectionResult, overlay: ProjectionResult) -> ProjectionResult: ...
 
+
 # Bad
 def results_merge(base: Any, overlay: Any) -> Any: ...
 ```
@@ -284,7 +303,7 @@ def results_merge(base: Any, overlay: Any) -> Any: ...
 
 ## Imports
 
-Order: the module docstring, then `from __future__ import annotations`, then standard library, third-party and local imports, each group separated by a blank line and sorted within the group. `ruff check` with the `I` rules enforces the order; `ruff check --fix` applies it.
+Order: the module docstring, then `from __future__ import annotations`, then standard library, third-party and local imports, each group separated by a blank line and sorted within the group. Ruff's `I` rules enforce the order; `ruff check --fix` applies it.
 
 ```python
 """Module docstring."""
@@ -307,7 +326,7 @@ No comment headers over the groups: the blank lines already say where a group st
 
 ## Documentation: Google-style docstrings everywhere
 
-Every module, class and function has a docstring in the Google style.
+Every module, and every class and function in it, has a docstring in the Google style.
 
 ### Modules
 
@@ -351,7 +370,7 @@ A one-line summary, a paragraph of detail if the behaviour is not obvious, then 
 - **Args:** every parameter, with its meaning, units and constraints.
 - **Returns:** the structure and meaning of the result, including edge cases (empty input, missing data).
 - **Raises:** every exception a caller should expect.
-- **Example:** typical use, as a doctest where it can run.
+- **Example:** typical use, as a doctest, so it stays true.
 
 ```python
 def paragraphs_build(
@@ -384,11 +403,11 @@ def paragraphs_build(
     """
 ```
 
-Properties are documented like attributes: a one-line description of the value, no Args or Returns.
+Properties are documented like fields: a one-line description of the value, no Args or Returns.
 
-### Classes and dataclasses
+### Classes and data types
 
-Purpose, an **Attributes** section covering every field, and an **Example** of construction and use.
+Purpose, an **Attributes** section covering every field, and an **Example** of construction and use. This is where Python differs from the TypeScript guide, which documents each field on the field itself: Python has no comment syntax that attaches to a dataclass field, and the Google style puts them in the class docstring.
 
 ```python
 @dataclass(frozen=True)
@@ -411,7 +430,7 @@ class Segment:
     text: str
 ```
 
-Doctests should pass: `python -m doctest -v module.py`. Mark an example that needs files or a network with `# doctest: +SKIP`.
+Doctests pass: `python -m doctest -v module.py`. Mark an example that needs files or a network with `# doctest: +SKIP`.
 
 ### Comments
 
@@ -429,22 +448,23 @@ wholeSeconds = int(seconds)
 
 ---
 
-## Tooling: ruff, zero tolerance
+## Tooling: ruff and rpn_check, zero tolerance
 
-- `ruff check` reports nothing. `ruff format --check` reports nothing.
-- Fix the cause of a finding rather than silencing it. A `# noqa` or `# type: ignore` needs a comment on the same line saying why the rule is wrong for that line.
-- A project's own `[tool.ruff]` or `ruff.toml` wins. Start from [`ruff.toml`](ruff.toml), which selects pep8-naming and then ignores exactly the rules the [naming](#naming) section overrides (`N802`, `N803`, `N806`, `N815`, `N816`). Every other naming rule stays on.
-- Anyone proposing code, a person or a coding agent, runs `ruff check` first and shows the clean output with the change.
+- `ruff check` reports nothing. `ruff format --check` reports nothing. `python rpn_check.py <paths>` reports nothing. Doctests pass.
+- Fix the cause of a finding rather than silencing it. A `# noqa` or `# type: ignore` names the rule and gives the reason on the same line.
+- A project's own `[tool.ruff]` wins. Start from [`ruff.toml`](ruff.toml), which selects pep8-naming and then ignores exactly the rules the [naming](#naming) section overrides (`N802`, `N803`, `N806`, `N815`, `N816`). Ruff cannot express the RPN rule, so [`rpn_check.py`](rpn_check.py) checks it, with the same pattern as the TypeScript ESLint configuration.
+- Anyone proposing code, a person or a coding agent, runs the checks first and shows the clean output with the change.
 
 ---
 
 ## Checklist
 
-- [ ] Python 3.11+ features; `from __future__ import annotations` first.
-- [ ] Functions and methods named `subject_action`.
-- [ ] Variables, parameters and fields in lowerCamelCase; classes PascalCase; constants UPPER_SNAKE_CASE.
+- [ ] Python 3.11+; `from __future__ import annotations` first; configuration in `pyproject.toml`.
+- [ ] Functions and methods named `subject_verb`, exactly one underscore; the verb is a verb.
+- [ ] Variables, parameters and fields in lowerCamelCase; classes PascalCase; module constants UPPER_SNAKE_CASE.
 - [ ] Type hints on every parameter and return, and on non-obvious locals; specific collection types; no `Any`.
 - [ ] Non-primitive returns are a `dataclass` or a Pydantic model, never a bare dict or loose tuple.
+- [ ] Untrusted input validated into a model at the edge.
 - [ ] Functions refactored on nesting, responsibility, clarity and repetition, not on length.
 - [ ] Named constants; one source of truth; specific types at interfaces.
 - [ ] Imports grouped: `__future__`, standard library, third-party, local.
@@ -452,4 +472,4 @@ wholeSeconds = int(seconds)
 - [ ] Every function and method: summary, Args, Returns, Raises, Example.
 - [ ] Every class: purpose, Attributes, Example.
 - [ ] Comments explain why, not what.
-- [ ] `ruff check` and `ruff format --check` clean; doctests pass.
+- [ ] `ruff check`, `ruff format --check`, `rpn_check.py` and doctests clean.

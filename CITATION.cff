@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you refer to these style guides, please cite them as below."
+title: "style-guides: Python and TypeScript coding conventions"
+type: software
+version: 1.0.0
+date-released: 2026-11-03
+authors:
+  - family-names: Pienaar
+    given-names: Rudolph
+    affiliation: "Boston Children's Hospital"
+    orcid: "https://orcid.org/0000-0002-8684-3185"
+repository-code: "https://github.com/rudolphpienaar/style-guides"
+license: MIT
+abstract: >-
+  Paired style guides for Python and TypeScript, kept on one outline, with
+  lint configurations that enforce them (ruff, ESLint, tsc), a checker for the
+  RPN subject_verb naming convention, and a reference module in each language.
+keywords:
+  - style guide
+  - coding conventions
+  - Python
+  - TypeScript
+  - ruff
+  - ESLint

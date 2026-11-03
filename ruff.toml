@@ -1,0 +1,2 @@
+# Repository scripts follow the Python style guide they sit beside.
+extend = "python/ruff.toml"

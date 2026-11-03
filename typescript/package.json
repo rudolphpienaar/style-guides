@@ -1,0 +1,24 @@
+{
+  "name": "style-guides-typescript",
+  "private": true,
+  "type": "module",
+  "description": "Lint and type-check configuration and reference module for the TypeScript style guide.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "check": "npm run typecheck && npm run lint && npm test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "node --test example/transcript.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^63.3.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}
